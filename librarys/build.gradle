@@ -12,6 +12,6 @@ dependencies {
 }
 
 tasks.shadowJar{
-    archivesBaseName = "Common"
+    archivesBaseName = "okhttp_find"
 
 }
