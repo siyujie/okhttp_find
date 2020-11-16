@@ -1,0 +1,17 @@
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+sourceSets {
+    main {
+        java.srcDirs += ['src/main/apacheCommonsLang']
+    }
+}
+
+dependencies {
+
+}
+
+tasks.shadowJar{
+    archivesBaseName = "Common"
+
+}
