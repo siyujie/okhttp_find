@@ -38,25 +38,21 @@ public class OkHttpFinder {
     private List<Class> mClazzList = new ArrayList<>();
 
     public void findClassInit(List<Class> clazzList){
-        try {
-            if(null == clazzList){
-                throw new NullPointerException("classList is empty !");
+        if(null == clazzList){
+            throw new NullPointerException("classList is empty !");
+        }
+        mClazzList.clear();
+        mClazzList.addAll(clazzList);
+        findTag1 = false;
+        findTag2 = false;
+        for(Class clazz : clazzList){
+            String className = clazz.getName();
+            if(!findTag1) {
+                findClientAndBuilderAndBuildAnd(clazz, className);
             }
-            mClazzList.clear();
-            mClazzList.addAll(clazzList);
-            findTag1 = false;
-            findTag2 = false;
-            for(Class clazz : clazzList){
-                String className = clazz.getName();
-                if(!findTag1) {
-                    findClientAndBuilderAndBuildAnd(clazz, className);
-                }
-                if(!findTag2) {
-                    findOkioBuffer(clazz, className);
-                }
+            if(!findTag2) {
+                findOkioBuffer(clazz, className);
             }
-        }catch (Throwable e){
-            throw e;
         }
     }
 
@@ -70,49 +66,51 @@ public class OkHttpFinder {
      * @param className
      */
     private void findClientAndBuilderAndBuildAnd(Class classes,String className){
-        if(Modifier.isFinal(classes.getModifiers())
-                && Modifier.isStatic(classes.getModifiers())
-        ){
-            int listCount = 0;
-            int finalListCount = 0;
-            int listInterfaceCount = 0;
-            Field[] fields = classes.getDeclaredFields();
-            Field.setAccessible(fields,true);
-            for (Field field : fields) {
-                String type = field.getType().getName();
-                if (type.contains(List.class.getName())) {
-                    listCount++;
-                    Class genericClass = getGenericClass(field);
-                    if(null != genericClass && genericClass.isInterface()){
-                        listInterfaceCount++;
+        try {
+            if(Modifier.isFinal(classes.getModifiers())
+                    && Modifier.isStatic(classes.getModifiers())
+            ){
+                int listCount = 0;
+                int finalListCount = 0;
+                int listInterfaceCount = 0;
+                Field[] fields = classes.getDeclaredFields();
+                Field.setAccessible(fields,true);
+                for (Field field : fields) {
+                    String type = field.getType().getName();
+                    if (type.contains(List.class.getName())) {
+                        listCount++;
+                        Class genericClass = getGenericClass(field);
+                        if(null != genericClass && genericClass.isInterface()){
+                            listInterfaceCount++;
+                        }
+                    }
+                    if (type.contains(List.class.getName()) && Modifier.isFinal(field.getModifiers())) {
+                        finalListCount++;
                     }
                 }
-                if (type.contains(List.class.getName()) && Modifier.isFinal(field.getModifiers())) {
-                    finalListCount++;
-                }
-            }
-            //4个list 2个 final
-            if(listCount == 4 && finalListCount == 2 && listInterfaceCount==2){
-                //找到Client
-                Class OkHttpClientClazz = classes.getEnclosingClass();
-                if(Cloneable.class.isAssignableFrom(OkHttpClientClazz)){
-                    OkCompat.Cls_OkHttpClient = OkHttpClientClazz.getName();
+                //4个list 2个 final
+                if(listCount == 4 && finalListCount == 2 && listInterfaceCount==2){
+                    //找到Client
+                    Class OkHttpClientClazz = classes.getEnclosingClass();
+                    if(Cloneable.class.isAssignableFrom(OkHttpClientClazz)){
+                        OkCompat.Cls_OkHttpClient = OkHttpClientClazz.getName();
 
-                    if(null != classes && null != classes.getPackage()){
-                        Compat_PackageName = classes.getPackage().getName();
+                        if(null != classes && null != classes.getPackage()){
+                            Compat_PackageName = classes.getPackage().getName();
+                        }
+
+                        Class builderClazz = classes;
+
+                        find_interceptor(builderClazz);
+
+                        findClientAbout(OkHttpClientClazz);
+
+                        findTag1 = true;
                     }
 
-                    Class builderClazz = classes;
-
-                    find_interceptor(builderClazz);
-
-                    findClientAbout(OkHttpClientClazz);
-
-                    findTag1 = true;
                 }
-
             }
-        }
+        }catch (Throwable th){}
     }
 
 
@@ -576,39 +574,40 @@ public class OkHttpFinder {
      * @param className
      */
     private void findOkioBuffer(Class classes,String className) {
-        if(Modifier.isFinal(classes.getModifiers())
-                && Cloneable.class.isAssignableFrom(classes)
-        ){
-            Field[] declaredFields = classes.getDeclaredFields();
-            Field.setAccessible(declaredFields,true);
-            Class okioBufferClazz = null;
-            for(Field field : declaredFields){
-                try {
-                    if(byte[].class.isAssignableFrom(field.getType())
-                            && Modifier.isStatic(field.getModifiers())
-                            && ((byte[])field.get(null)).length == 16
-                    ){
-                        //TODO  Okio.Buffer
-                        okioBufferClazz = classes;
-                        break;
+        try {
+            if(Modifier.isFinal(classes.getModifiers())
+                    && Cloneable.class.isAssignableFrom(classes)
+            ){
+                Field[] declaredFields = classes.getDeclaredFields();
+                Field.setAccessible(declaredFields,true);
+                Class okioBufferClazz = null;
+                for(Field field : declaredFields){
+                    try {
+                        if(byte[].class.isAssignableFrom(field.getType())
+                                && Modifier.isStatic(field.getModifiers())
+                                && ((byte[])field.get(null)).length == 16
+                        ){
+                            //TODO  Okio.Buffer
+                            okioBufferClazz = classes;
+                            break;
+                        }
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
                     }
-                } catch (IllegalAccessException e) {
-                    e.printStackTrace();
                 }
-            }
-            if(null != okioBufferClazz) {
+                if(null != okioBufferClazz) {
 
-                findTag2 = true;
+                    findTag2 = true;
 
-                OkCompat.Cls_okio_Buffer = okioBufferClazz.getName();
+                    OkCompat.Cls_okio_Buffer = okioBufferClazz.getName();
 
-                Method[] declaredMethods = okioBufferClazz.getDeclaredMethods();
-                Method.setAccessible(declaredMethods, true);
-                for(Method m : declaredMethods){
-                    Class<?> returnClazz = m.getReturnType();
-                    if(byte[].class.isAssignableFrom(returnClazz) && Utils.getParameterCount(m) == 0){
-                        OkCompat.M_buffer_readByteArray = m.getName();
-                    }
+                    Method[] declaredMethods = okioBufferClazz.getDeclaredMethods();
+                    Method.setAccessible(declaredMethods, true);
+                    for(Method m : declaredMethods){
+                        Class<?> returnClazz = m.getReturnType();
+                        if(byte[].class.isAssignableFrom(returnClazz) && Utils.getParameterCount(m) == 0){
+                            OkCompat.M_buffer_readByteArray = m.getName();
+                        }
 
 //                    if(int.class.isAssignableFrom(returnClazz) && Utils.getParameterCount(m) == 0){
 //                        if(m.toGenericString().contains("EOFException")){
@@ -616,11 +615,11 @@ public class OkHttpFinder {
 //                            OKLog.debugLog(String.format(format,"M_buffer_readUtf8CodePoint",OkCompat.M_buffer_readUtf8CodePoint));
 //                        }
 //                    }
+                    }
                 }
+
             }
-
-        }
-
+        }catch (Throwable th){}
     }
 
 
